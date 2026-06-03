@@ -1,0 +1,2 @@
+dependencies:
+  m5stack/M5Unified: "^0.2.8"

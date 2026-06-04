@@ -54,10 +54,15 @@ static constexpr uint8_t PY32_VM_EN_PIN   = 0;
 
 static SCSCL g_scs;
 
+// 通知音の音量 (0〜255)。
+static constexpr uint8_t VOL_SMALL = 60;   // 残り 15/5/1 分の小さい通知音
+static constexpr uint8_t VOL_LOUD  = 180;  // 終了直前・時間切れの音
+
 enum FaceMood {
     MOOD_NORMAL,
     MOOD_SERIOUS,
     MOOD_PANIC,
+    MOOD_URGENT,    // 残り1分
     MOOD_SURPRISED,
 };
 
@@ -74,6 +79,7 @@ static bool     first_draw         = true;
 
 static FaceMood compute_mood() {
     if (time_up) return MOOD_SURPRISED;
+    if (remaining_seconds <= 1 * 60)  return MOOD_URGENT;
     if (remaining_seconds <= 5 * 60)  return MOOD_PANIC;
     if (remaining_seconds <= 15 * 60) return MOOD_SERIOUS;
     return MOOD_NORMAL;
@@ -83,6 +89,7 @@ static uint16_t face_color_for(FaceMood m) {
     switch (m) {
         case MOOD_SERIOUS:   return TFT_ORANGE;
         case MOOD_PANIC:     return TFT_RED;
+        case MOOD_URGENT:    return TFT_MAGENTA;
         case MOOD_SURPRISED: return TFT_CYAN;
         default:             return TFT_YELLOW;
     }
@@ -138,6 +145,19 @@ static void draw_face(FaceMood mood) {
             lcd.fillCircle(cx + r - 4, cy - r / 2 + 4, 3, TFT_BLUE);
             break;
         }
+        case MOOD_URGENT: {
+            // 残り1分: ギュッとつぶった目 (><) と叫ぶ口で焦り MAX
+            const int e = 7;
+            lcd.drawWideLine(elx - e, ey - e, elx + e, ey + e, 3, TFT_BLACK);
+            lcd.drawWideLine(elx - e, ey + e, elx + e, ey - e, 3, TFT_BLACK);
+            lcd.drawWideLine(erx - e, ey - e, erx + e, ey + e, 3, TFT_BLACK);
+            lcd.drawWideLine(erx - e, ey + e, erx + e, ey - e, 3, TFT_BLACK);
+            const int my = cy + r / 3;
+            lcd.fillEllipse(cx, my, r / 4, r / 5, TFT_BLACK);  // 大きく開いた口
+            lcd.fillCircle(cx - r + 2, cy - r / 3,     3, TFT_CYAN);  // 汗
+            lcd.fillCircle(cx + r - 2, cy - r / 3 + 4, 3, TFT_CYAN);
+            break;
+        }
         case MOOD_SURPRISED: {
             lcd.fillCircle(elx, ey, 7, TFT_WHITE);
             lcd.fillCircle(erx, ey, 7, TFT_WHITE);
@@ -174,7 +194,8 @@ static void draw_time() {
 
     const FaceMood mood = compute_mood();
     uint16_t color = TFT_GREEN;
-    if (mood == MOOD_PANIC)        color = TFT_RED;
+    if (mood == MOOD_URGENT)       color = TFT_MAGENTA;
+    else if (mood == MOOD_PANIC)   color = TFT_RED;
     else if (mood == MOOD_SERIOUS) color = TFT_YELLOW;
 
     lcd.setTextColor(color, TFT_BLACK);
@@ -370,14 +391,17 @@ extern "C" void app_main(void) {
                     remaining_seconds = 0;
                     running = false;
                     time_up = true;
+                    M5.Speaker.setVolume(VOL_LOUD);
                     M5.Speaker.tone(1200, 800);
-                } else if (
-                    remaining_seconds == 30 * 60 ||
-                    remaining_seconds == 15 * 60 ||
-                    remaining_seconds == 5 * 60 ||
-                    remaining_seconds == 60 ||
-                    remaining_seconds <= 10
-                ) {
+                } else if (remaining_seconds == 15 * 60 ||
+                           remaining_seconds == 5 * 60 ||
+                           remaining_seconds == 1 * 60) {
+                    // 残り 15/5/1 分: 小さい音で通知
+                    M5.Speaker.setVolume(VOL_SMALL);
+                    M5.Speaker.tone(880, 150);
+                } else if (remaining_seconds <= 10) {
+                    // 終了直前のカウントダウン
+                    M5.Speaker.setVolume(VOL_LOUD);
                     M5.Speaker.tone(1000, 120);
                 }
             }

@@ -41,7 +41,7 @@ bool SCSerial::begin(uart_port_t uart_num, int baud_rate, int tx_pin, int rx_pin
 		.stop_bits = UART_STOP_BITS_1,
 		.flow_ctrl = UART_HW_FLOWCTRL_DISABLE,
 		.rx_flow_ctrl_thresh = 0,
-		.source_clk = UART_SCLK_DEFAULT,
+		.source_clk = UART_SCLK_XTAL,
 	};
 
 	esp_err_t ret = uart_driver_install(uart_num, buf_size, buf_size, 0, NULL, 0);

@@ -1,4 +1,4 @@
-#include "M5Unified.h"
+#include <M5Unified.h>
 #include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -366,7 +366,7 @@ static void handle_touch() {
     touch_was_down = pressed_now;
 }
 
-extern "C" void app_main(void) {
+void setup() {
     auto cfg = M5.config();
     M5.begin(cfg);
     M5.Display.setRotation(1);
@@ -375,43 +375,43 @@ extern "C" void app_main(void) {
 
     last_tick_us = esp_timer_get_time();
     refresh_display();
+}
 
-    while (true) {
-        M5.update();
-        handle_touch();
+void loop() {
+    M5.update();
+    handle_touch();
 
-        if (running && !time_up) {
-            const int64_t now = esp_timer_get_time();
-            if (now - last_tick_us >= 1000000) {
-                const int elapsed = static_cast<int>((now - last_tick_us) / 1000000);
-                last_tick_us += static_cast<int64_t>(elapsed) * 1000000;
-                remaining_seconds -= elapsed;
+    if (running && !time_up) {
+        const int64_t now = esp_timer_get_time();
+        if (now - last_tick_us >= 1000000) {
+            const int elapsed = static_cast<int>((now - last_tick_us) / 1000000);
+            last_tick_us += static_cast<int64_t>(elapsed) * 1000000;
+            remaining_seconds -= elapsed;
 
-                if (remaining_seconds <= 0) {
-                    remaining_seconds = 0;
-                    running = false;
-                    time_up = true;
-                    M5.Speaker.setVolume(VOL_LOUD);
-                    M5.Speaker.tone(1200, 800);
-                } else if (remaining_seconds == 15 * 60 ||
-                           remaining_seconds == 5 * 60 ||
-                           remaining_seconds == 1 * 60) {
-                    // 残り 15/5/1 分: 小さい音で通知
-                    M5.Speaker.setVolume(VOL_SMALL);
-                    M5.Speaker.tone(880, 150);
-                } else if (remaining_seconds <= 10) {
-                    // 終了直前のカウントダウン
-                    M5.Speaker.setVolume(VOL_LOUD);
-                    M5.Speaker.tone(1000, 120);
-                }
+            if (remaining_seconds <= 0) {
+                remaining_seconds = 0;
+                running = false;
+                time_up = true;
+                M5.Speaker.setVolume(VOL_LOUD);
+                M5.Speaker.tone(1200, 800);
+            } else if (remaining_seconds == 15 * 60 ||
+                       remaining_seconds == 5 * 60 ||
+                       remaining_seconds == 1 * 60) {
+                // 残り 15/5/1 分: 小さい音で通知
+                M5.Speaker.setVolume(VOL_SMALL);
+                M5.Speaker.tone(880, 150);
+            } else if (remaining_seconds <= 10) {
+                // 終了直前のカウントダウン
+                M5.Speaker.setVolume(VOL_LOUD);
+                M5.Speaker.tone(1000, 120);
             }
-            update_servo_motion();
-        } else {
-            // 停止中・時間切れ時は首を基準姿勢で静止させる。
-            servo_center();
         }
-
-        refresh_display();
-        vTaskDelay(pdMS_TO_TICKS(20));
+        update_servo_motion();
+    } else {
+        // 停止中・時間切れ時は首を基準姿勢で静止させる。
+        servo_center();
     }
+
+    refresh_display();
+    delay(20);
 }
